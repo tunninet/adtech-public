@@ -1,0 +1,13 @@
+---
+- name: Uninstall Namespace adtech
+  hosts: localhost
+  tasks:
+    - name: Delete adtech namespace
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: adtech
+

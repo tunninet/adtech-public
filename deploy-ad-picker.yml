@@ -1,0 +1,157 @@
+---
+- name: Deploy Ad-Picker with DB fallback
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    name_space: "adtech"
+    image_name: "<YOUR_REGISTRY_FQDN>:5000/ad-picker:latest"
+    build_context: "<YOUR_REPO_FILE_PATH>/ad-picker"
+    ingress_host: "<YOUR_API_URL>"
+
+  tasks:
+
+    ###################################################################
+    # 1) Ensure the adtech namespace exists
+    ###################################################################
+    - name: Ensure '{{ name_space }}' namespace exists
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ name_space }}"
+
+    ###################################################################
+    # 2) Build & push Docker image for Ad-Picker
+    ###################################################################
+    - name: Build Docker image for Ad-Picker
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        source: build
+        build:
+          path: "{{ build_context }}"
+          rm: true
+        push: true
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no
+
+    ###################################################################
+    # 3) Deploy Ad-Picker (3 replicas)
+    ###################################################################
+    - name: Deploy Ad-Picker (2 replicas)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ad-picker
+            namespace: "{{ name_space }}"
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: ad-picker
+            template:
+              metadata:
+                labels:
+                  app: ad-picker
+              spec:
+                containers:
+                  - name: ad-picker
+                    image: "{{ image_name }}"
+                    env:
+                      - name: MONGO_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_USER
+                      - name: MONGO_PASS
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_PASS
+                      - name: MONGO_DB
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_DB
+                    ports:
+                      - containerPort: 8080
+
+    ###################################################################
+    # 4) Expose Ad-Picker Service
+    ###################################################################
+    - name: Expose Ad-Picker Service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ad-picker
+            namespace: "{{ name_space }}"
+          spec:
+            selector:
+              app: ad-picker
+            ports:
+              - protocol: TCP
+                port: 80
+                targetPort: 8080
+            type: ClusterIP
+
+    ###################################################################
+    # 5) Create Ingress for Ad-Picker
+    ###################################################################
+    - name: Create Ingress for Ad-Picker
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: ad-picker
+            namespace: "{{ name_space }}"
+            annotations:
+              nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+              cert-manager.io/cluster-issuer: "letsencrypt-production"
+          spec:
+            ingressClassName: "nginx"
+            rules:
+              - host: "{{ ingress_host }}"
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: ad-picker
+                          port:
+                            number: 80
+                    - path: /ad
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: ad-picker
+                          port:
+                            number: 80
+                    - path: /docs
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: ad-picker
+                          port:
+                            number: 80
+                    - path: /static
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: ad-picker
+                          port:
+                            number: 80
+            tls:
+              - hosts:
+                  - "{{ ingress_host }}"
+                secretName: ad-picker-tls

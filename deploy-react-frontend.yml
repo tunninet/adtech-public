@@ -1,0 +1,89 @@
+---
+- name: Deploy React Frontend
+  hosts: localhost
+  tasks:
+
+    - name: Build Docker image for React Frontend
+      community.docker.docker_image:
+        name: <YOUR_REGISTRY_FQDN>:5000/react-frontend:latest
+        source: build
+        build:
+          path: <YOUR_REPO_FILE_PATH>/react-frontend
+          rm: true
+        push: true
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no
+
+    - name: Deploy React Frontend to Kubernetes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: react-frontend
+            namespace: adtech
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: react-frontend
+            template:
+              metadata:
+                labels:
+                  app: react-frontend
+              spec:
+                containers:
+                  - name: react-frontend
+                    image: <YOUR_REGISTRY_FQDN>:5000/react-frontend:latest
+                    ports:
+                      - containerPort: 80
+
+    - name: Expose React Frontend Service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: react-frontend
+            namespace: adtech
+          spec:
+            selector:
+              app: react-frontend
+            ports:
+              - protocol: TCP
+                port: 80
+                targetPort: 80
+            type: ClusterIP
+
+    - name: Create Ingress for React Frontend
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: react-frontend
+            namespace: adtech
+            annotations:
+              nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+              cert-manager.io/cluster-issuer: "letsencrypt-production"
+          spec:
+            ingressClassName: nginx
+            rules:
+              - host: adtech.ny5.os.tunninet.com
+                http:
+                  paths:
+                    - path: /
+                      pathType: Prefix
+                      backend:
+                        service:
+                          name: react-frontend
+                          port:
+                            number: 80
+            tls:
+              - hosts:
+                  - adtech.ny5.os.tunninet.com
+                secretName: react-frontend-tls
+

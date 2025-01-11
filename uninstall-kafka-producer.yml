@@ -1,0 +1,27 @@
+---
+- name: Uninstall Kafka Producer
+  hosts: localhost
+  tasks:
+
+    - name: Delete Kafka Producer Deployment
+      kubernetes.core.k8s:
+        state: absent
+        kind: Deployment
+        name: kafka-producer
+        namespace: adtech
+
+    - name: Delete Kafka Producer Service
+      kubernetes.core.k8s:
+        state: absent
+        kind: Service
+        name: kafka-producer
+        namespace: adtech
+
+    - name: Remove Docker image for Kafka Producer from local Docker
+      community.docker.docker_image:
+        name: <YOUR_REGISTRY_FQDN>:5000/kafka-producer:latest
+        state: absent
+        force_absent: true
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no
+

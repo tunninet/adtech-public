@@ -1,0 +1,42 @@
+---
+- name: Uninstall Ad-Picker Service
+  hosts: localhost
+  tasks:
+
+    - name: Delete Ad-Picker Deployment from Kubernetes
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ad-picker
+            namespace: adtech
+
+    - name: Delete Ad-Picker Service from Kubernetes
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ad-picker
+            namespace: adtech
+
+    - name: Delete Ad-Picker Ingress from Kubernetes
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: ad-picker
+            namespace: adtech
+
+    - name: Delete Ad-Picker Docker image from local registry
+      community.docker.docker_image:
+        name: <YOUR_REGISTRY_FQDN>:5000/ad-picker
+        state: absent
+        docker_host: "unix://var/run/docker.sock"
+        force_absent: true
+        validate_certs: no

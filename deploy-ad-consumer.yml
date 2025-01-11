@@ -1,0 +1,107 @@
+# k8s-deploy-ad-consumer.yml
+---
+- name: Deploy Ad-Consumer (Mongo + Kafka)
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    # Docker image name and local build path
+    image_name: "<YOUR_REGISTRY_FQDN>:5000/ad-consumer:latest"
+    build_context: "<YOUR_REPO_FILE_PATH>/ad-consumer"
+
+    # Use a variable to specify the namespace
+    consumer_namespace: "adtech"
+
+  tasks:
+
+    ###################################################################
+    # 0) Ensure the namespace exists
+    ###################################################################
+    - name: Ensure '{{ consumer_namespace }}' namespace exists
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ consumer_namespace }}"
+
+    ###################################################################
+    # 1) Build & push Docker image from local code
+    ###################################################################
+    - name: Build Docker image for Ad-Consumer
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        source: build
+        build:
+          path: "{{ build_context }}"
+          rm: true
+        push: true
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no
+
+    ###################################################################
+    # 2) Create/Update the Deployment in K8s
+    ###################################################################
+    - name: Deploy Ad-Consumer Deployment
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ad-consumer
+            namespace: "{{ consumer_namespace }}"
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: ad-consumer
+            template:
+              metadata:
+                labels:
+                  app: ad-consumer
+              spec:
+                containers:
+                  - name: ad-consumer
+                    image: "{{ image_name }}"
+
+                    # Environment variables from secrets / direct assignments
+                    env:
+                      # If your cluster uses a secret called 'adtech-mongo-secret'
+                      # containing keys MONGO_USER, MONGO_PASS, MONGO_DB
+                      - name: MONGO_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_USER
+
+                      - name: MONGO_PASS
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_PASS
+
+                      - name: MONGO_DB
+                        valueFrom:
+                          secretKeyRef:
+                            name: adtech-mongo-secret
+                            key: MONGO_DB
+
+                      - name: KAFKA_BOOTSTRAP
+                        value: "<YOUR_KAFKA_SERVICE>:9092"
+
+                      - name: KAFKA_TOPIC
+                        value: "<YOUR_KAFKA_TOPIC>"
+
+                      - name: KAFKA_GROUP_ID
+                        value: "<YOUR_KAFKA_CONSUMER_GROUP>-demo"
+
+                      # Force IPv4 for kafka-python
+                      - name: KAFKA_PYTHON_FORCE_IP_VERSION
+                        value: "4"
+
+    ###################################################################
+    # (Optional) If you wanted a Service or Ingress for the consumer:
+    # typically a consumer does NOT need exposure, so we skip it.
+    ###################################################################

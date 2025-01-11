@@ -1,0 +1,6 @@
+Flask
+Werkzeug
+flask-cors
+flask-swagger-ui
+gunicorn
+pymongo

@@ -1,0 +1,24 @@
+---
+- name: Uninstall React Frontend
+  hosts: localhost
+  tasks:
+    - name: Delete React Frontend Ingress
+      kubernetes.core.k8s:
+        state: absent
+        kind: Ingress
+        namespace: adtech
+        name: react-frontend
+
+    - name: Delete React Frontend Service
+      kubernetes.core.k8s:
+        state: absent
+        kind: Service
+        namespace: adtech
+        name: react-frontend
+
+    - name: Delete React Frontend Deployment
+      kubernetes.core.k8s:
+        state: absent
+        kind: Deployment
+        namespace: adtech
+        name: react-frontend

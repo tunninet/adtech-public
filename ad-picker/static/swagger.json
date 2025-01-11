@@ -1,0 +1,54 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "This is the API documentation for the Ad Picker API",
+    "version": "1.0.0",
+    "title": "Ad Picker API"
+  },
+  "host": "<YOUR_API_URL>",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/ad": {
+      "get": {
+        "summary": "Get an ad based on user ID and last event from DB",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "type": "string",
+            "description": "The ID of the user"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ad retrieved successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ad": {
+                  "type": "string"
+                },
+                "image": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "string"
+                },
+                "event": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing user_id param"
+          }
+        }
+      }
+    }
+  }
+}

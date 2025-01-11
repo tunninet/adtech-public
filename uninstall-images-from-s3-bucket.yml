@@ -1,0 +1,9 @@
+---
+- name: Destroy Images from Swift
+  hosts: localhost
+  tasks:
+    - name: Destroy Terraform-managed resources
+      command: terraform destroy -auto-approve
+      args:
+        chdir: <YOUR_REPO_FILE_PATH>/terraform
+

@@ -1,0 +1,62 @@
+---
+- name: Deploy Kafka Producer
+  hosts: localhost
+  tasks:
+
+    - name: Build Docker image for Kafka Producer
+      community.docker.docker_image:
+        name: <YOUR_REGISTRY_FQDN>:5000/kafka-producer:latest
+        source: build
+        build:
+          path: <YOUR_REPO_FILE_PATH>/kafka-producer
+          rm: true
+        push: true
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no
+
+    - name: Deploy Kafka Producer to Kubernetes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: kafka-producer
+            namespace: adtech
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: kafka-producer
+            template:
+              metadata:
+                labels:
+                  app: kafka-producer
+              spec:
+                containers:
+                  - name: kafka-producer
+                    image: <YOUR_REGISTRY_FQDN>:5000/kafka-producer:latest
+                    env:
+                      - name: KAFKA_BROKER
+                        value: "<YOUR_KAFKA_BROKER>:9092"
+                    ports:
+                      - containerPort: 8080
+
+    - name: Expose Kafka Producer Service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: kafka-producer
+            namespace: adtech
+          spec:
+            selector:
+              app: kafka-producer
+            ports:
+              - protocol: TCP
+                port: 80
+                targetPort: 8080
+            type: ClusterIP
+

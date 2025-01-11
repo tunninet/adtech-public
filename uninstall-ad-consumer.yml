@@ -1,0 +1,44 @@
+# k8s-undo-ad-consumer.yml
+---
+- name: Undo / Remove Ad-Consumer (Mongo + Kafka)
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    # Must match what you used before
+    consumer_namespace: "adtech"
+
+    # Docker image name if you also want to remove it from local Docker
+    # or from your registry. Adjust as necessary, or remove if not needed.
+    image_name: "<YOUR_REGISTRY_FQDN>:5000/ad-consumer:latest"
+
+  tasks:
+
+    ###################################################################
+    # 1) Remove the Deployment from K8s
+    ###################################################################
+    - name: Remove Ad-Consumer Deployment
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ad-consumer
+            namespace: "{{ consumer_namespace }}"
+
+    ###################################################################
+    # 2) (Optional) Remove the local Docker image, if desired
+    #
+    #    If you push images to an external registry and want them gone
+    #    there, you must remove/purge them from that registry.
+    #
+    #    If you just want to remove it from your local Docker daemon,
+    #    you can do this step. Omit if not needed.
+    ###################################################################
+    - name: Remove Ad-Consumer image from local Docker
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        state: absent
+        docker_host: "unix://var/run/docker.sock"
+        validate_certs: no

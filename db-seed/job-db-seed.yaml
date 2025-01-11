@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-ads-job
+  namespace: adtech
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: db-seed
+        image: <YOUR_REGISTRY_FQDN>:5000/db-seed:latest
+        env:
+          - name: MONGO_USER
+            valueFrom:
+              secretKeyRef:
+                name: adtech-mongo-secret
+                key: MONGO_USER
+          - name: MONGO_PASS
+            valueFrom:
+              secretKeyRef:
+                name: adtech-mongo-secret
+                key: MONGO_PASS
+          - name: MONGO_DB
+            valueFrom:
+              secretKeyRef:
+                name: adtech-mongo-secret
+                key: MONGO_DB
